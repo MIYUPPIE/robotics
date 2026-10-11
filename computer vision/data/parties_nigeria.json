@@ -1,0 +1,17 @@
+[
+  { "acronym": "APC", "name": "All Progressives Congress", "color": "#2563EB", "logo": "party_logos/APC.png" },
+  { "acronym": "PDP", "name": "Peoples Democratic Party", "color": "#DC2626", "logo": "party_logos/PDP.png" },
+  { "acronym": "LP", "name": "Labour Party", "color": "#16A34A", "logo": "party_logos/LP.png" },
+  { "acronym": "NNPP", "name": "New Nigeria Peoples Party", "color": "#EA580C", "logo": "party_logos/NNPP.png" },
+  { "acronym": "APGA", "name": "All Progressives Grand Alliance", "color": "#7C3AED", "logo": "party_logos/APGA.png" },
+  { "acronym": "ADC", "name": "African Democratic Congress", "color": "#0891B2", "logo": "party_logos/ADC.png" },
+  { "acronym": "SDP", "name": "Social Democratic Party", "color": "#CA8A04" },
+  { "acronym": "YPP", "name": "Young Progressives Party", "color": "#DB2777", "logo": "party_logos/YPP.png" },
+  { "acronym": "ADP", "name": "Action Democratic Party", "color": "#059669" },
+  { "acronym": "AA", "name": "Action Alliance", "color": "#4B5563" },
+  { "acronym": "AAC", "name": "African Action Congress", "color": "#B91C1C" },
+  { "acronym": "APM", "name": "Allied Peoples Movement", "color": "#9333EA" },
+  { "acronym": "BP", "name": "Boot Party", "color": "#0D9488" },
+  { "acronym": "NRM", "name": "National Rescue Movement", "color": "#92400E" },
+  { "acronym": "ZLP", "name": "Zenith Labour Party", "color": "#65A30D" }
+]

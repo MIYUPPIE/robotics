@@ -1,0 +1,7 @@
+{
+  "detail_thresh": 16.0,
+  "std_thresh": 55.0,
+  "on_delay": 1.5,
+  "off_delay": 2.0,
+  "_note": "Calibrated 2026-06-29 on cam 192.168.0.104 substream. Uncovered: detail~25.5 std~70. Covered: detail 1-12 std 9-44. Re-run 'camguard.py calibrate' if the scene/camera changes."
+}

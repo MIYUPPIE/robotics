@@ -1,0 +1,61 @@
+[0.022s] Invoking command in '/home/okhub/Documents/ROBOTICS/aic/build/aic_control_interfaces': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake /home/okhub/Documents/ROBOTICS/aic/aic_interfaces/aic_control_interfaces -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/okhub/Documents/ROBOTICS/aic/install/aic_control_interfaces
+[0.199s] -- The C compiler identification is GNU 11.5.0
+[0.307s] -- The CXX compiler identification is GNU 11.5.0
+[0.332s] -- Detecting C compiler ABI info
+[0.456s] -- Detecting C compiler ABI info - done
+[0.466s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.466s] -- Detecting C compile features
+[0.467s] -- Detecting C compile features - done
+[0.480s] -- Detecting CXX compiler ABI info
+[0.604s] -- Detecting CXX compiler ABI info - done
+[0.619s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.619s] -- Detecting CXX compile features
+[0.620s] -- Detecting CXX compile features - done
+[0.639s] -- Found ament_cmake: 2.5.5 (/opt/ros/jazzy/share/ament_cmake/cmake)
+[0.787s] -- Found Python3: /home/okhub/anaconda3/bin/python3 (found version "3.13.9") found components: Interpreter 
+[0.895s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[0.969s] -- Found builtin_interfaces: 2.0.3 (/opt/ros/jazzy/share/builtin_interfaces/cmake)
+[1.047s] -- Found rosidl_generator_c: 4.6.7 (/opt/ros/jazzy/share/rosidl_generator_c/cmake)
+[1.076s] -- Found rosidl_generator_cpp: 4.6.7 (/opt/ros/jazzy/share/rosidl_generator_cpp/cmake)
+[1.116s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[1.148s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[1.183s] -- Found geometry_msgs: 5.3.6 (/opt/ros/jazzy/share/geometry_msgs/cmake)
+[1.244s] -- Found rosidl_default_generators: 1.6.0 (/opt/ros/jazzy/share/rosidl_default_generators/cmake)
+[1.266s] -- Found rosidl_adapter: 4.6.7 (/opt/ros/jazzy/share/rosidl_adapter/cmake)
+[1.272s] -- Found trajectory_msgs: 5.3.6 (/opt/ros/jazzy/share/trajectory_msgs/cmake)
+[1.539s] [31mCMake Error at /opt/ros/jazzy/share/rosidl_adapter/cmake/rosidl_adapt_interfaces.cmake:57 (message):
+[1.540s]   execute_process(/home/okhub/anaconda3/bin/python3 -m rosidl_adapter
+[1.540s]   --package-name aic_control_interfaces --arguments-file
+[1.540s]   /home/okhub/Documents/ROBOTICS/aic/build/aic_control_interfaces/rosidl_adapter__arguments__aic_control_interfaces.json
+[1.540s]   --output-dir
+[1.540s]   /home/okhub/Documents/ROBOTICS/aic/build/aic_control_interfaces/rosidl_adapter/aic_control_interfaces
+[1.541s]   --output-file
+[1.541s]   /home/okhub/Documents/ROBOTICS/aic/build/aic_control_interfaces/rosidl_adapter/aic_control_interfaces.idls)
+[1.541s]   returned error code 1:
+[1.541s] 
+[1.541s]   Traceback (most recent call last):
+[1.542s] 
+[1.542s]     File "<frozen runpy>", line 198, in _run_module_as_main
+[1.542s]     File "<frozen runpy>", line 88, in _run_code
+[1.542s]     File "/opt/ros/jazzy/lib/python3.12/site-packages/rosidl_adapter/__main__.py", line 19, in <module>
+[1.542s]       sys.exit(main())
+[1.543s]                ~~~~^^
+[1.543s]     File "/opt/ros/jazzy/lib/python3.12/site-packages/rosidl_adapter/main.py", line 53, in main
+[1.543s]       abs_idl_file = convert_to_idl(
+[1.543s]           pathlib.Path(basepath), args.package_name,
+[1.543s]           pathlib.Path(relative_path), output_dir)
+[1.543s]     File "/opt/ros/jazzy/lib/python3.12/site-packages/rosidl_adapter/__init__.py", line 18, in convert_to_idl
+[1.544s]       from rosidl_adapter.msg import convert_msg_to_idl
+[1.544s]     File "/opt/ros/jazzy/lib/python3.12/site-packages/rosidl_adapter/msg/__init__.py", line 16, in <module>
+[1.544s]       from rosidl_adapter.resource import expand_template
+[1.544s]     File "/opt/ros/jazzy/lib/python3.12/site-packages/rosidl_adapter/resource/__init__.py", line 19, in <module>
+[1.544s]       import em
+[1.545s] 
+[1.545s]   ModuleNotFoundError: No module named 'em'
+[1.545s] 
+[1.545s] Call Stack (most recent call first):
+[1.545s]   /opt/ros/jazzy/share/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake:132 (rosidl_adapt_interfaces)
+[1.545s]   CMakeLists.txt:39 (rosidl_generate_interfaces)
+[1.546s] 
+[1.546s] [0m
+[1.546s] -- Configuring incomplete, errors occurred!

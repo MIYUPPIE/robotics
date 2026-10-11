@@ -1,0 +1,1 @@
+Invoking command in '/home/okhub/Documents/ROBOTICS/aic/build/aic_control_interfaces': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy CONDA_PROMPT_MODIFIER=(base) /usr/bin/cmake /home/okhub/Documents/ROBOTICS/aic/aic_interfaces/aic_control_interfaces -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/okhub/Documents/ROBOTICS/aic/install/aic_control_interfaces

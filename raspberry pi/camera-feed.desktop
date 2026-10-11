@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Camera Feed
+Comment=Open the ethernet PTZ camera viewer
+Exec=systemctl --user restart camview.service
+Icon=camera-video
+Terminal=false
+Categories=AudioVideo;Video;

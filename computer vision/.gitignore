@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Model weights — never committed (CLAUDE.md rule: no binaries/model weights in-repo)
+models/
+
+# Generated audio cache — regenerate via `make prerender-audio` (needs YARNGPT_API_KEY)
+voice/audio_cache/
+
+# Runtime data — contains biometric PII, never committed
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+registration_app/slips/
+
+# Eval fixtures — contain consented biometric/audio PII, gitignored per privacy
+# policy. The CONSENT.md template itself (no PII) stays tracked.
+**/evals/data/*
+!**/evals/data/*.md
+
+# Env / secrets
+.env
+
+# OS
+.DS_Store
+
+# Claude Code local session/harness state
+.claude/

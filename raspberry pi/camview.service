@@ -1,0 +1,12 @@
+[Unit]
+Description=Ethernet PTZ camera viewer (fullscreen VLC on labwc)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/home/okhub/view-camera.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

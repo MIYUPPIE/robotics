@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Model weights -- large binaries, never committed. Auto-downloaded by
+# ultralytics/boxmot on first use; models/ holds any fine-tuned checkpoints
+# you drop in for weapon/fire/shelf detection.
+*.pt
+*.ts
+*.onnx
+models/
+
+# Training data (raw photos + labels) and ultralytics' own training-run
+# output -- both large, both regeneratable via capture_dataset.py /
+# auto_label.py / build_dataset.py / train_shelf_model.py.
+training_data/
+runs/
+
+# Runtime output, not source.
+pos_feed.json
+
+.venv/

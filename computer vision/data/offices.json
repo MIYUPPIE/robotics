@@ -1,0 +1,7 @@
+[
+  { "code": "PRESIDENT", "name_en": "President", "level": "federal", "order": 1 },
+  { "code": "GOVERNOR", "name_en": "Governor", "level": "state", "order": 2 },
+  { "code": "SENATE", "name_en": "Senator", "level": "federal", "order": 3 },
+  { "code": "HOR", "name_en": "House of Representatives Member", "level": "federal", "order": 4 },
+  { "code": "SHA", "name_en": "State House of Assembly Member", "level": "state", "order": 5 }
+]

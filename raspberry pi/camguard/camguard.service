@@ -1,0 +1,12 @@
+[Unit]
+Description=camguard - sound the GPIO17 buzzer when the camera is covered
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/okhub/camguard/camguard.py run
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
