@@ -1,0 +1,5 @@
+# runtime artefacts: machine/room specific, regenerate by running main.py
+logs/*
+!logs/.gitkeep
+data/reference.json
+data/*.tmp

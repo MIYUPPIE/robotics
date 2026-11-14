@@ -1,4 +1,4 @@
-.PHONY: setup download-models check-env prerender-audio test eval lint \
+.PHONY: run-lightcomp lightcomp-eval setup download-models check-env prerender-audio test eval lint \
         run-kiosk run-registration run-admin seed-demo
 
 ENV_NAME := voter-kiosk-cv
@@ -33,7 +33,7 @@ eval:
 
 lint:
 	ruff check .
-	mypy contracts storage biometric voice hand_ui kiosk_app registration_app admin_app
+	mypy contracts storage biometric voice hand_ui kiosk_app registration_app admin_app light-compensation
 
 run-kiosk:
 	python -m kiosk_app.main
@@ -46,3 +46,9 @@ run-admin:
 
 seed-demo:
 	python scripts/seed_demo_data.py
+
+run-lightcomp:
+	cd light-compensation && python main.py
+
+lightcomp-eval:
+	python light-compensation/evals/compensation_eval.py

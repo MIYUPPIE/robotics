@@ -58,6 +58,7 @@ testpaths = [
     "admin_app",
     "scripts",
     "tests",
+    "light-compensation",
 ]
 python_files = ["test_*.py"]
 markers = [

@@ -9,7 +9,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: mypy contracts storage biometric voice hand_ui kiosk_app registration_app admin_app
+        entry: mypy contracts storage biometric voice hand_ui kiosk_app registration_app admin_app light-compensation
         language: system
         pass_filenames: false
 
