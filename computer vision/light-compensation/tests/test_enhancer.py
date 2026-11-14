@@ -98,3 +98,47 @@ def test_input_not_mutated():
     before = f.copy()
     enhance(f, 2.0)
     assert np.array_equal(f, before)
+
+
+def _temporal_noise(settings, n=12):
+    scene = make_scene(h=72, w=96)
+    rng = np.random.default_rng(5)
+    enh = Enhancer(settings)
+    outs = []
+    for _ in range(n):
+        f = darken(scene, 0.06, rng)
+        pre = preprocess(f, settings.analysis_width)
+        outs.append(enh.enhance(f, pre, 5.0, to_level(f)).frame.astype(np.float32))
+    return np.stack(outs[4:]).std(axis=0).mean()  # per-pixel temporal std
+
+
+def test_temporal_denoise_cuts_frame_to_frame_noise():
+    on = _temporal_noise(Settings())
+    off = _temporal_noise(Settings(temporal_max_weight=0.0))
+    assert on < 0.75 * off
+
+
+def test_temporal_state_resets_at_unity_gain_and_on_shape_change():
+    e = Enhancer(Settings())
+    f = darken(make_scene(h=72, w=96), 0.1, np.random.default_rng(0))
+    pre = preprocess(f, 40)
+    e.enhance(f, pre, 4.0, 0.2)
+    assert e._prev is not None
+    e.enhance(f, pre, 1.0, 0.2)
+    assert e._prev is None
+    e.enhance(f, pre, 4.0, 0.2)
+    g = darken(make_scene(h=48, w=64), 0.1, np.random.default_rng(0))
+    e.enhance(g, preprocess(g, 40), 4.0, 0.2)  # different size: must not crash
+
+
+def test_moving_object_is_not_ghosted():
+    s = Settings(clahe_clip_max=1.0, denoise_gain_min=99, chroma_blur_gain_min=99)
+    e = Enhancer(s)
+    a = np.full((72, 96, 3), 40, np.uint8)
+    b = a.copy()
+    b[:, 40:60] = 160  # object appears
+    for f in (a, a, a):
+        e.enhance(f, preprocess(f, 40), 4.0, 0.2)
+    out = e.enhance(b, preprocess(b, 40), 4.0, 0.2).frame
+    ref = Enhancer(s).enhance(b, preprocess(b, 40), 4.0, 0.2).frame  # no history
+    assert np.abs(out[:, 45:55].astype(int) - ref[:, 45:55].astype(int)).mean() < 3

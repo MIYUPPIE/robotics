@@ -114,3 +114,27 @@ def test_drift_moves_toward_stats():
     assert 0.5 < d.level < 0.52
     assert drift_reference(ref, stats(0.52), 0.0, 0.1) is ref
     assert drift_reference(ref, stats(0.52), 0.5, 0.0) is ref
+
+
+def test_old_reference_rejected(tmp_path):
+    from dataclasses import replace
+    from datetime import UTC, datetime, timedelta
+
+    ref = run_calibration([0.5] * 40).finalize()
+    old = (datetime.now(UTC) - timedelta(hours=30)).isoformat(timespec="seconds")
+    p = tmp_path / "r.json"
+    save_reference(replace(ref, created_at=old), p)
+    with pytest.raises(ReferenceFileError, match="old"):
+        load_reference(p, S)
+    fresh = replace(S, max_reference_age_h=48.0)
+    assert load_reference(p, fresh) is not None
+
+
+def test_garbage_timestamp_rejected(tmp_path):
+    from dataclasses import replace
+
+    ref = run_calibration([0.5] * 40).finalize()
+    p = tmp_path / "r.json"
+    save_reference(replace(ref, created_at="yesterday"), p)
+    with pytest.raises(ReferenceFileError, match="created_at"):
+        load_reference(p, S)

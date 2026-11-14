@@ -68,6 +68,8 @@ class Pipeline:
         self._reference: Reference | None = reference
         self._exposure: dict[str, Any] = {}
         self._last_t: float | None = None
+        self._t_first: float | None = None
+        self._mismatch_warned = reference is None  # only check stored references
 
     @property
     def reference(self) -> Reference | None:
@@ -88,6 +90,8 @@ class Pipeline:
         self._controller.reset()
         self._filter.reset()
         self._last_t = None
+        self._t_first = None
+        self._mismatch_warned = True  # fresh calibration: nothing stale to warn about
 
     def process(self, frame_bgr: np.ndarray, t: float) -> FrameResult:
         t_start = time.perf_counter()
@@ -111,6 +115,7 @@ class Pipeline:
         if s.drift_rate_per_s > 0 and state is LightState.NORMAL and abs(ratio - 1) <= s.drift_band:
             self._reference = ref = drift_reference(ref, stats, s.drift_rate_per_s, dt)
 
+        message = self._check_startup(state, t)
         ctl = self._controller.update(level_f, ref.level, state, t)
         result = self._enhancer.enhance(frame_bgr, pre, ctl.gain, stats.level)
 
@@ -139,7 +144,25 @@ class Pipeline:
             brightness_error_pct=err,
             latency_ms=(time.perf_counter() - t_start) * 1000.0,
             transition=transition,
+            message=message,
         )
+
+    def _check_startup(self, state: LightState, t: float) -> str:
+        """A stored reference is only valid for the lighting it was recorded in. If the very
+        first seconds already read DIMMED/DARK, either the lights really are off or the
+        reference is stale (other day, room, angle). Say so, once, so it is not a mystery."""
+        s = self._s
+        if self._t_first is None:
+            self._t_first = t
+        if state is LightState.NORMAL or self._mismatch_warned:
+            return ""
+        if t - self._t_first <= s.startup_check_s + s.confirm_seconds + 1e-9:
+            self._mismatch_warned = True
+            return (
+                f"Started {state.value} against a stored reference. If the lights were on, "
+                "press r to recalibrate"
+            )
+        return ""
 
     def _calibrating(
         self, frame: np.ndarray, stats: IlluminationStats, t: float, t_start: float

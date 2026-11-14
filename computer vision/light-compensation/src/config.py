@@ -43,6 +43,8 @@ class Settings:
     drift_rate_per_s: float = 0.0  # 0 disables slow reference drift (default: off)
     drift_band: float = 0.05  # only drift while |ratio - 1| is inside this band
     reference_file: str = "data/reference.json"
+    max_reference_age_h: float = 24.0  # older stored references are discarded
+    startup_check_s: float = 3.0  # DIMMED/DARK this soon after start on a stored reference -> warn
 
     # --- 05 light-state detector (ratio = current level / reference level) ---
     dim_enter: float = 0.88
@@ -58,13 +60,13 @@ class Settings:
 
     # --- 06 controller (G = clip(R^alpha, 1, Gmax), smoothed) ---
     alpha: float = 1.0
-    max_gain: float = 8.0
+    max_gain: float = 16.0
     gain_tau_up_s: float = 0.40
     gain_tau_down_s: float = 0.30
     epsilon: float = 1e-3
 
     # --- 07 enhancer ---
-    gamma_floor: float = 0.35
+    gamma_floor: float = 0.20
     target_ceiling: float = 0.92  # never ask gamma to push the median above this
     clahe_clip_min: float = 1.0
     clahe_clip_max: float = 2.5
@@ -72,6 +74,8 @@ class Settings:
     trim_tolerance: float = 0.02  # post-CLAHE level within this of target: no trim
     trim_gamma_min: float = 0.33
     trim_gamma_max: float = 3.0
+    temporal_max_weight: float = 0.8  # weight of previous frame in temporal denoise at max gain
+    temporal_motion_threshold: float = 20.0  # L difference (0..255) treated as motion
     denoise_gain_min: float = 1.4  # denoise only when the gain is at least this
     denoise_sigma_color: float = 25.0
     denoise_sigma_space: float = 5.0
@@ -119,6 +123,10 @@ class Settings:
         req(0 < self.gamma_floor <= 1.0, "gamma_floor must be in (0, 1]")
         req(0.5 < self.target_ceiling < 1.0, "target_ceiling must be in (0.5, 1)")
         req(1.0 <= self.clahe_clip_min <= self.clahe_clip_max, "need 1 <= clahe_clip_min <= max")
+        req(self.max_reference_age_h > 0, "max_reference_age_h must be > 0")
+        req(self.startup_check_s >= 0, "startup_check_s must be >= 0")
+        req(0 <= self.temporal_max_weight < 1, "temporal_max_weight must be in [0, 1)")
+        req(self.temporal_motion_threshold > 0, "temporal_motion_threshold must be > 0")
         req(self.clahe_tile >= 2, "clahe_tile must be >= 2")
         req(0 <= self.trim_tolerance < 0.5, "trim_tolerance must be in [0, 0.5)")
         req(

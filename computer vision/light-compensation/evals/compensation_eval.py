@@ -13,6 +13,7 @@ Pass bars (from document.md section 6 + the project brief):
   recovery to NORMAL           < 4 s    and no over-bright flash (error < 15 %)
   false triggers               == 0     person sweeps + small screen-brightness changes
   extreme dark                 graceful: finite values, gain <= max_gain
+  temporal denoise             >= 25 % less frame-to-frame noise at k=0.06
   median frame latency         < 30 ms  at 640x480
 
 Usage: python evals/compensation_eval.py        (from light-compensation/)
@@ -40,7 +41,7 @@ from evals.synth import add_occluder, darken, make_scene  # noqa: E402
 FPS = 30
 SETTINGS = replace(Settings(), calibration_seconds=3.0, lock_exposure=False)
 MODERATE_K = (0.7, 0.5, 0.35, 0.2)
-EXTREME_K = (0.1, 0.05, 0.02)
+EXTREME_K = (0.1, 0.05, 0.02, 0.008, 0.004)
 SEEDS = (0, 1, 2)
 
 ERROR_BAR_PCT = 15.0
@@ -151,6 +152,15 @@ def extreme(k: float, seed: int) -> dict[str, float]:
     return {"ok": float(ok), "error_pct": r.brightness_error_pct, "gain": r.gain}
 
 
+def temporal_noise(enabled: bool) -> float:
+    """Mean per-pixel temporal std of the compensated output of a static, very dark scene."""
+    s = SETTINGS if enabled else replace(SETTINGS, temporal_max_weight=0.0)
+    rig = Rig(0, settings=s)
+    rig.step(0.06, 4.0)
+    frames = np.stack([r.frame.astype(np.float32) for _, r in rig.log[-60:]])
+    return float(frames.std(axis=0).mean())
+
+
 def frame_latency_ms() -> float:
     rig = Rig(0, h=480, w=640)
     rig.log.clear()
@@ -201,6 +211,14 @@ def run() -> list[Check]:
             "finite, gain<=max",
             bool(e["ok"]),
         )
+
+    on, off = temporal_noise(True), temporal_noise(False)
+    add(
+        "temporal denoise noise cut k=0.06",
+        f"{(1 - on / off) * 100:.0f}%",
+        ">= 25%",
+        on <= 0.75 * off,
+    )
 
     lat = frame_latency_ms()
     add(

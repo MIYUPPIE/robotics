@@ -20,7 +20,12 @@ conda run -n voter-kiosk-cv python main.py --recalibrate
 conda run -n voter-kiosk-cv python main.py --no-display --max-seconds 30 --snapshot /tmp/s.png
 ```
 
-Keys: `q`/ESC quit, `r` recalibrate, `s` snapshot. First run: keep the lights on for
+Keys: `q`/ESC quit, `r` recalibrate, `s` snapshot.
+
+**A stored reference is only valid for the lighting it was recorded in.** If the app
+starts already DIMMED/DARK on a stored reference it prints and shows
+"press r to recalibrate". References older than `max_reference_age_h` (24 h) are discarded.
+For experiments with many lights, start with `--recalibrate` under the lighting you call normal. First run: keep the lights on for
 `calibration_seconds` (5 s). The reference is saved to `data/reference.json` and reused on
 the next start, together with the locked exposure value, so restarting in a dark room
 still compensates against the original normal.
@@ -57,7 +62,7 @@ Unknown keys or inconsistent values are rejected at startup.
 
 ```bash
 make test               # gate tests (repo root); light-compensation adds ~130, ~3 s
-make lightcomp-eval     # closed-loop synthetic eval, ~1 min, 21 checks (also in `make eval`)
+make lightcomp-eval     # closed-loop synthetic eval, ~1.5 min, 24 checks (also in `make eval`)
 python tools/plot_history.py                      # logs/history.png from the CSV
 ```
 
@@ -72,7 +77,9 @@ machine's webcam: 30 fps, ~6 ms/frame.
 - Uneven lighting (spec test 7): only global light changes trigger compensation. Local
   dark regions get CLAHE only once a global state fires. Spatial compensation is v0.2.
 - Webcam gain is not exposed by this driver; exposure is locked, gain is not.
-- Gamma and CLAHE amplify sensor noise; denoise is mild. Very dark scenes look noisy by nature.
+- Gamma and CLAHE amplify sensor noise. Mitigated by bilateral + chroma blur and a motion-guarded
+  temporal filter (about 46 % less frame-to-frame noise in the eval), but very dark scenes still
+  look noisy. Max gain is 16.
 - Thresholds were tuned on synthetic data. Re-tune on real recordings by lowering the
   room light with `lock_exposure` on.
 - Deep-learning enhancement (Zero-DCE++) is milestone M7, not built.

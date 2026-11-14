@@ -25,6 +25,7 @@ from .illumination import estimate
 from .preprocessing import Preprocessed, downscale_luma
 
 _IDENTITY_GAIN = 1.0 + 1e-3
+_TEMPORAL_FULL_GAIN = 4.0  # temporal weight reaches its maximum at this gain
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,7 @@ class Enhancer:
     def __init__(self, settings: Settings) -> None:
         self._s = settings
         self._clahe: dict[float, cv2.CLAHE] = {}
+        self._prev: np.ndarray | None = None
 
     def _get_clahe(self, clip: float) -> cv2.CLAHE:
         key = round(clip, 1)
@@ -73,6 +75,7 @@ class Enhancer:
         """Return the compensated frame. At gain ~1 the input frame is returned untouched."""
         s = self._s
         if gain <= _IDENTITY_GAIN:
+            self._prev = None
             return EnhanceResult(frame_bgr, False, 1.0, 0.0)
 
         target = min(gain * min(max(level, 0.01), 0.97), s.target_ceiling)
@@ -85,6 +88,7 @@ class Enhancer:
             a = cv2.GaussianBlur(a, (5, 5), 0)
             b = cv2.GaussianBlur(b, (5, 5), 0)
 
+        lum, a, b = self._temporal(lum, a, b, gain)
         gamma = solve_gamma(gain, level, s.gamma_floor, s.target_ceiling)
         lum = cv2.LUT(lum, gamma_lut(gamma))
         clip = self.clahe_clip_for(gain)
@@ -95,6 +99,26 @@ class Enhancer:
 
         out = cv2.cvtColor(cv2.merge([lum, a, b]), cv2.COLOR_LAB2BGR)
         return EnhanceResult(out, True, gamma, clip, trim)
+
+    def _temporal(
+        self, lum: np.ndarray, a: np.ndarray, b: np.ndarray, gain: float
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Recursive temporal denoise on L, a and b. Noise grows with gain, so the weight on the
+        previous frame does too. Pixels whose L changed by more than the motion threshold take
+        the new values outright (all three planes), so moving people do not ghost."""
+        s = self._s
+        cur = np.dstack([lum, a, b]).astype(np.float32)
+        prev = self._prev
+        w = s.temporal_max_weight * min(math.log(gain) / math.log(_TEMPORAL_FULL_GAIN), 1.0)
+        if prev is None or prev.shape != cur.shape or w <= 0:
+            self._prev = cur
+            return lum, a, b
+        blended = w * prev + (1.0 - w) * cur
+        moving = np.abs(cur[:, :, 0] - prev[:, :, 0]) > s.temporal_motion_threshold
+        out = np.where(moving[:, :, None], cur, blended)
+        self._prev = out
+        o = np.clip(np.rint(out), 0, 255).astype(np.uint8)
+        return o[:, :, 0], o[:, :, 1], o[:, :, 2]
 
     def _trim(self, lum: np.ndarray, target: float) -> tuple[np.ndarray, float]:
         """One corrective gamma so the post-CLAHE grid level equals `target`."""

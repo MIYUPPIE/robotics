@@ -152,6 +152,14 @@ def load_reference(path: Path | str, settings: Settings) -> Reference | None:
 
     if not (0.0 < ref.level <= 1.0) or len(ref.cells) != ref.grid_rows * ref.grid_cols:
         raise ReferenceFileError("reference values are inconsistent")
+    try:
+        age_h = (datetime.now(UTC) - datetime.fromisoformat(ref.created_at)).total_seconds() / 3600
+    except ValueError as exc:
+        raise ReferenceFileError(f"bad created_at: {ref.created_at!r}") from exc
+    if age_h > settings.max_reference_age_h:
+        raise ReferenceFileError(
+            f"reference is {age_h:.0f} h old (max {settings.max_reference_age_h:g})"
+        )
     mismatches = [
         name
         for name, stored, now in (

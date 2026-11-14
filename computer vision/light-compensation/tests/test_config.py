@@ -67,3 +67,17 @@ def test_resolve_paths(tmp_path):
     s = Settings()
     assert s.resolve(str(tmp_path / "x")) == tmp_path / "x"
     assert s.resolve("logs/a.csv").name == "a.csv"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"temporal_max_weight": 1.0},
+        {"temporal_motion_threshold": 0.0},
+        {"max_reference_age_h": 0.0},
+        {"startup_check_s": -1.0},
+    ],
+)
+def test_new_settings_validated(bad):
+    with pytest.raises(SettingsError):
+        settings_from_dict(bad)

@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -43,8 +44,6 @@ def main(argv: list[str] | None = None) -> int:
     try:
         settings = load_settings(args.settings)
         if args.camera is not None:
-            from dataclasses import replace
-
             settings = replace(settings, camera_index=args.camera)
             settings.validate()
     except SettingsError as exc:
@@ -78,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     last_composite = None
     fps, last_t, t0 = 0.0, None, time.monotonic()
     dropped_reads = 0
+    banner, banner_until = "", 0.0
 
     with HistoryLogger(
         settings.resolve(settings.log_file),
@@ -104,6 +104,11 @@ def main(argv: list[str] | None = None) -> int:
                 last_t = t
 
                 r = pipeline.process(frame, t)
+                if r.message:
+                    banner, banner_until = r.message, t + 8.0
+                    print(f"[{t:7.2f}s] {r.message}")
+                if banner and t < banner_until:
+                    r = replace(r, message=banner)
                 if r.calibrated_now and pipeline.reference is not None:
                     save_reference(pipeline.reference, ref_path)
                     print(f"reference saved: level={r.ref_level:.3f} -> {ref_path}")

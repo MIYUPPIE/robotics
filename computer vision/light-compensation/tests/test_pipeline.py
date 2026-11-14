@@ -179,3 +179,41 @@ def test_reference_json_is_plain_json(tmp_path):
     sim = calibrated()
     save_reference(sim.p.reference, tmp_path / "r.json")
     assert json.loads((tmp_path / "r.json").read_text())["version"] == 1
+
+
+def test_stale_reference_warns_once_at_startup():
+    ref = calibrated().p.reference
+    sim = Sim(reference=ref, seed=3)
+    msgs = []
+    for _ in range(int(6 * FPS)):
+        r = sim.p.process(darken(SCENE, 0.2, sim.rng), sim.t)  # already dark at start
+        sim.t += 1 / FPS
+        if r.message:
+            msgs.append(r.message)
+    assert len(msgs) == 1 and "press r" in msgs[0] and "DARK" in msgs[0]
+
+
+def test_no_startup_warning_when_lights_are_normal_or_fresh_calibration():
+    ref = calibrated().p.reference
+    sim = Sim(reference=ref)
+    msgs = [r.message for r in [sim.run(1.0, 2.0)] if r.message]
+    assert msgs == []
+    sim = calibrated()  # fresh calibration, then lights off within seconds
+    msgs = []
+    for _ in range(int(3 * FPS)):
+        r = sim.p.process(darken(SCENE, 0.2, sim.rng), sim.t)
+        sim.t += 1 / FPS
+        msgs.append(r.message)
+    assert not any(msgs)
+
+
+def test_late_dimming_on_stored_reference_is_not_a_startup_warning():
+    ref = calibrated().p.reference
+    sim = Sim(reference=ref)
+    sim.run(1.0, 6.0)
+    msgs = []
+    for _ in range(int(3 * FPS)):
+        r = sim.p.process(darken(SCENE, 0.2, sim.rng), sim.t)
+        sim.t += 1 / FPS
+        msgs.append(r.message)
+    assert not any(msgs)
