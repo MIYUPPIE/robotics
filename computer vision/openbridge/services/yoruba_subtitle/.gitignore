@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+*.pyc
+evals/clips/*.wav
+evals/results.json
