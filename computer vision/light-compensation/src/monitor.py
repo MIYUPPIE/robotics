@@ -42,8 +42,18 @@ class History:
         return list(self._data)
 
 
+def _panel(img: np.ndarray, x0: int, y0: int, x1: int, y1: int, alpha: float = 0.55) -> None:
+    """Darken a rectangle so HUD text stays readable on any background."""
+    h, w = img.shape[:2]
+    x0, y0, x1, y1 = max(x0, 0), max(y0, 0), min(x1, w), min(y1, h)
+    if x1 > x0 and y1 > y0:
+        roi = img[y0:y1, x0:x1]
+        img[y0:y1, x0:x1] = (roi * (1.0 - alpha)).astype(np.uint8)
+
+
 def _text(img: np.ndarray, s: str, org: tuple[int, int], color=(255, 255, 255), scale=0.5) -> None:
-    cv2.putText(img, s, org, _FONT, scale, (0, 0, 0), 2, cv2.LINE_AA)
+    (tw, th), _ = cv2.getTextSize(s, _FONT, scale, 1)
+    _panel(img, org[0] - 4, org[1] - th - 4, org[0] + tw + 4, org[1] + 5)
     cv2.putText(img, s, org, _FONT, scale, color, 1, cv2.LINE_AA)
 
 

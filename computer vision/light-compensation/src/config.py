@@ -81,6 +81,21 @@ class Settings:
     denoise_sigma_space: float = 5.0
     chroma_blur_gain_min: float = 2.0
     measure_output: bool = True  # measure output brightness for the error metric
+    measure_every: int = 3  # ...on every Nth frame (the last value is carried between)
+
+    # --- 07b reference-guided relighting (default mode) ---
+    enhance_mode: str = "reference"  # "reference" (needs stored image) or "gamma"
+    field_cols: int = 16
+    field_rows: int = 12
+    field_outlier_thr: float = 0.35  # log units: cell vs neighbourhood median (~42 %)
+    field_dev_max: float = 0.9  # log units: max spread of the field around its global ratio
+    field_min_gain: float = 0.5
+    field_max_gain: float = 100.0  # linear-light gain cap
+    field_gate_lo: float = 0.03  # robust deviation below this: no correction
+    field_gate_hi: float = 0.12  # ...at or above this: full correction
+    field_tau_up_s: float = 0.30
+    background_shrink_kappa: float = 2.0  # 0 disables; noise multiples treated as "unchanged"
+    noise_sigma_init: float = 3.0  # starting sensor-noise estimate, 8-bit levels
 
     # --- 08 output / monitoring ---
     log_file: str = "logs/light_history.csv"
@@ -127,6 +142,15 @@ class Settings:
         req(self.startup_check_s >= 0, "startup_check_s must be >= 0")
         req(0 <= self.temporal_max_weight < 1, "temporal_max_weight must be in [0, 1)")
         req(self.temporal_motion_threshold > 0, "temporal_motion_threshold must be > 0")
+        req(self.enhance_mode in ("reference", "gamma"), "enhance_mode: reference or gamma")
+        req(self.field_cols >= 2 and self.field_rows >= 2, "field grid must be >= 2x2")
+        req(self.field_outlier_thr > 0 and self.field_dev_max > 0, "field thresholds must be > 0")
+        req(0 < self.field_min_gain <= 1.0 < self.field_max_gain, "need min_gain<=1<max_gain")
+        req(0 <= self.field_gate_lo < self.field_gate_hi, "need 0 <= gate_lo < gate_hi")
+        req(self.background_shrink_kappa >= 0, "background_shrink_kappa must be >= 0")
+        req(0 < self.noise_sigma_init <= 12, "noise_sigma_init must be in (0, 12]")
+        req(self.field_tau_up_s >= 0, "field_tau_up_s must be >= 0")
+        req(self.measure_every >= 1, "measure_every must be >= 1")
         req(self.clahe_tile >= 2, "clahe_tile must be >= 2")
         req(0 <= self.trim_tolerance < 0.5, "trim_tolerance must be in [0, 0.5)")
         req(

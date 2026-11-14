@@ -12,6 +12,7 @@ The camera is restored to its original auto-exposure mode on release().
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -140,3 +141,55 @@ class Camera:
             self._restore_mode = None
         self._cap.release()
         self._cap = None
+
+
+class LatestFrameReader:
+    """Reads the camera on a background thread and keeps only the newest frame.
+
+    Processing a frame can take about as long as the camera's frame interval. Reading inline
+    would then also wait for the sensor, halving throughput. With this reader the main loop
+    always processes the freshest frame and never queues stale ones.
+    """
+
+    def __init__(self, camera: Camera) -> None:
+        self._camera = camera
+        self._lock = threading.Lock()
+        self._frame: np.ndarray | None = None
+        self._seq = 0
+        self._last_taken = 0
+        self._stop = threading.Event()
+        self._failures = 0
+        self._thread = threading.Thread(target=self._run, name="camera-reader", daemon=True)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            frame = self._camera.read()
+            with self._lock:
+                if frame is None:
+                    self._failures += 1
+                else:
+                    self._failures = 0
+                    self._frame, self._seq = frame, self._seq + 1
+
+    @property
+    def failures(self) -> int:
+        with self._lock:
+            return self._failures
+
+    def get(self, timeout: float = 1.0) -> np.ndarray | None:
+        """Block until a frame newer than the last one returned exists; None on timeout."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with self._lock:
+                if self._seq != self._last_taken and self._frame is not None:
+                    self._last_taken = self._seq
+                    return self._frame
+            time.sleep(0.001)
+        return None
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=2.0)

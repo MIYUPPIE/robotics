@@ -13,8 +13,8 @@ Pass bars (from document.md section 6 + the project brief):
   recovery to NORMAL           < 4 s    and no over-bright flash (error < 15 %)
   false triggers               == 0     person sweeps + small screen-brightness changes
   extreme dark                 graceful: finite values, gain <= max_gain
-  temporal denoise             >= 25 % less frame-to-frame noise at k=0.06
-  median frame latency         < 30 ms  at 640x480
+  denoising (temporal+shrink)  >= 50 % less frame-to-frame noise at k=0.06
+  median frame latency         < 33 ms (30 fps budget)  at 640x480
 
 Usage: python evals/compensation_eval.py        (from light-compensation/)
        make eval                                (via the pytest wrapper)
@@ -48,7 +48,7 @@ ERROR_BAR_PCT = 15.0
 DETECT_BAR_S = 1.5
 FLICKER_BAR = 0.012
 RECOVERY_BAR_S = 4.0
-LATENCY_BAR_MS = 30.0
+LATENCY_BAR_MS = 33.0
 
 
 @dataclass
@@ -146,15 +146,20 @@ def extreme(k: float, seed: int) -> dict[str, float]:
     ok = bool(
         np.isfinite(r.gain)
         and np.isfinite(r.output_level)
-        and r.gain <= SETTINGS.max_gain + 1e-6
+        and r.gain <= SETTINGS.field_max_gain + 1e-6
         and r.frame.dtype == np.uint8
     )
     return {"ok": float(ok), "error_pct": r.brightness_error_pct, "gain": r.gain}
 
 
 def temporal_noise(enabled: bool) -> float:
-    """Mean per-pixel temporal std of the compensated output of a static, very dark scene."""
-    s = SETTINGS if enabled else replace(SETTINGS, temporal_max_weight=0.0)
+    """Mean per-pixel temporal std of the compensated output of a static, very dark scene,
+    with all denoising (temporal + background shrink) on or off."""
+    s = (
+        SETTINGS
+        if enabled
+        else replace(SETTINGS, temporal_max_weight=0.0, background_shrink_kappa=0.0)
+    )
     rig = Rig(0, settings=s)
     rig.step(0.06, 4.0)
     frames = np.stack([r.frame.astype(np.float32) for _, r in rig.log[-60:]])
@@ -208,16 +213,16 @@ def run() -> list[Check]:
         add(
             f"extreme dark k={k} graceful",
             f"gain {e['gain']:.1f}, err {e['error_pct']:.0f}%",
-            "finite, gain<=max",
+            "finite, gain<=cap",
             bool(e["ok"]),
         )
 
     on, off = temporal_noise(True), temporal_noise(False)
     add(
-        "temporal denoise noise cut k=0.06",
+        "denoising noise cut k=0.06",
         f"{(1 - on / off) * 100:.0f}%",
-        ">= 25%",
-        on <= 0.75 * off,
+        ">= 50%",
+        on <= 0.5 * off,
     )
 
     lat = frame_latency_ms()

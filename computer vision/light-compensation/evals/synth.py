@@ -32,7 +32,7 @@ def make_scene(seed: int = 7, h: int = H, w: int = W) -> np.ndarray:
 
 def darken(
     scene: np.ndarray,
-    k: float,
+    k: float | np.ndarray,
     rng: np.random.Generator,
     read_noise: float = 0.003,
     shot: float = 0.004,

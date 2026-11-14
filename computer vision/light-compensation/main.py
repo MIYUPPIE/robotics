@@ -20,8 +20,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import cv2  # noqa: E402
-from src.calibration import ReferenceFileError, load_reference, save_reference  # noqa: E402
-from src.camera import Camera, CameraError, ExposureState  # noqa: E402
+from src.calibration import (  # noqa: E402
+    ReferenceFileError,
+    load_reference,
+    load_reference_image,
+    save_reference,
+    save_reference_image,
+)
+from src.camera import Camera, CameraError, ExposureState, LatestFrameReader  # noqa: E402
 from src.config import SettingsError, load_settings  # noqa: E402
 from src.logger import HistoryLogger  # noqa: E402
 from src.monitor import History, compose  # noqa: E402
@@ -52,11 +58,19 @@ def main(argv: list[str] | None = None) -> int:
 
     ref_path = settings.resolve(settings.reference_file)
     reference = None
+    ref_image = None
     if not args.recalibrate:
         try:
             reference = load_reference(ref_path, settings)
+            if reference is not None:
+                ref_image = load_reference_image(ref_path, settings)
+                if ref_image is None and settings.enhance_mode == "reference":
+                    raise ReferenceFileError(
+                        "no stored reference image (needed for reference mode)"
+                    )
         except ReferenceFileError as exc:
             print(f"stored reference rejected ({exc}); recalibrating", file=sys.stderr)
+            reference, ref_image = None, None
 
     camera = Camera(settings)
     try:
@@ -70,7 +84,10 @@ def main(argv: list[str] | None = None) -> int:
     if not exposure.locked and settings.lock_exposure:
         print("WARNING: exposure not locked; webcam auto-exposure may mask the light change")
 
-    pipeline = Pipeline(settings, reference)
+    pipeline = Pipeline(settings, reference, ref_image)
+    print(f"mode: {pipeline.mode}")
+    reader = LatestFrameReader(camera)
+    reader.start()
     pipeline.set_exposure_info(exposure.to_dict())
     history = History(settings.graph_seconds)
     show = not args.no_display
@@ -89,11 +106,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         try:
             while True:
-                frame = camera.read()
+                frame = reader.get()
                 t = time.monotonic() - t0
                 if frame is None:
                     dropped_reads += 1
-                    if dropped_reads > 100:
+                    if dropped_reads > 5 or reader.failures > 100:
                         print("camera stopped delivering frames", file=sys.stderr)
                         return 4
                     continue
@@ -111,7 +128,9 @@ def main(argv: list[str] | None = None) -> int:
                     r = replace(r, message=banner)
                 if r.calibrated_now and pipeline.reference is not None:
                     save_reference(pipeline.reference, ref_path)
-                    print(f"reference saved: level={r.ref_level:.3f} -> {ref_path}")
+                    if pipeline.reference_image is not None:
+                        save_reference_image(pipeline.reference_image, ref_path)
+                    print(f"reference saved: level={r.ref_level:.3f} mode={pipeline.mode}")
                 if r.transition is not None:
                     print(f"[{t:7.2f}s] {r.transition.old.value} -> {r.transition.new.value}")
                 log.log(t, r, fps)
@@ -140,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
         finally:
             if args.snapshot and last_composite is not None:
                 cv2.imwrite(args.snapshot, last_composite)
+            reader.stop()
             camera.release()
             if show:
                 cv2.destroyAllWindows()

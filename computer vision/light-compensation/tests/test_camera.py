@@ -117,3 +117,49 @@ def test_release_restores_original_auto_mode():
     cam.release()
     assert cap.props[cv2.CAP_PROP_AUTO_EXPOSURE] == V4L2_AUTO and cap.released
     cam.release()  # idempotent
+
+
+def test_latest_frame_reader_returns_fresh_frames_and_stops():
+    import threading
+
+    from src.camera import LatestFrameReader
+
+    class Counter(FakeCap):
+        def __init__(self):
+            super().__init__()
+            self.n = 0
+            self.gate = threading.Event()
+
+        def read(self):
+            self.gate.wait(0.002)
+            self.n += 1
+            return True, np.full((4, 4, 3), self.n % 255, np.uint8)
+
+    cap = Counter()
+    cam = make(cap)
+    reader = LatestFrameReader(cam)
+    reader.start()
+    a = reader.get(timeout=2.0)
+    b = reader.get(timeout=2.0)
+    assert a is not None and b is not None and int(b[0, 0, 0]) != int(a[0, 0, 0])
+    reader.stop()
+    n = cap.n
+    import time
+
+    time.sleep(0.05)
+    assert cap.n - n <= 1  # thread really stopped
+
+
+def test_latest_frame_reader_times_out_and_counts_failures():
+    from src.camera import LatestFrameReader
+
+    class Dead(FakeCap):
+        def read(self):
+            return False, None
+
+    cam = make(Dead())
+    reader = LatestFrameReader(cam)
+    reader.start()
+    assert reader.get(timeout=0.05) is None
+    assert reader.failures > 0
+    reader.stop()

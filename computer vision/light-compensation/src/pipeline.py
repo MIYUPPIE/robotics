@@ -24,10 +24,11 @@ from .calibration import (
 )
 from .config import Settings
 from .controller import CompensationController
-from .enhancer import Enhancer, output_level_of
+from .enhancer import Enhancer, EnhanceResult, output_level_of
 from .illumination import IlluminationStats, LevelFilter, dropped_cell_fraction, estimate
 from .light_detector import LightDetector, LightState, Transition
 from .preprocessing import preprocess
+from .reference_enhancer import ReferenceEnhancer
 
 
 class Phase(StrEnum):
@@ -58,7 +59,12 @@ class FrameResult:
 
 
 class Pipeline:
-    def __init__(self, settings: Settings, reference: Reference | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        reference: Reference | None = None,
+        reference_image: np.ndarray | None = None,
+    ) -> None:
         self._s = settings
         self._enhancer = Enhancer(settings)
         self._detector = LightDetector(settings)
@@ -66,14 +72,34 @@ class Pipeline:
         self._filter = LevelFilter(settings.level_fall_tau_s)
         self._calibrator = Calibrator(settings)
         self._reference: Reference | None = reference
+        self._ref_image: np.ndarray | None = reference_image
+        self._relighter: ReferenceEnhancer | None = None
+        self._build_relighter()
         self._exposure: dict[str, Any] = {}
         self._last_t: float | None = None
+        self._frames_run = 0
+        self._last_measure = (float("nan"), float("nan"))
         self._t_first: float | None = None
         self._mismatch_warned = reference is None  # only check stored references
 
     @property
     def reference(self) -> Reference | None:
         return self._reference
+
+    @property
+    def reference_image(self) -> np.ndarray | None:
+        return self._ref_image
+
+    @property
+    def mode(self) -> str:
+        return "reference" if self._relighter is not None else "gamma"
+
+    def _build_relighter(self) -> None:
+        img = self._ref_image
+        if self._s.enhance_mode == "reference" and img is not None:
+            self._relighter = ReferenceEnhancer(self._s, img)
+        else:
+            self._relighter = None
 
     @property
     def phase(self) -> Phase:
@@ -85,11 +111,15 @@ class Pipeline:
 
     def recalibrate(self) -> None:
         self._reference = None
+        self._ref_image = None
+        self._relighter = None
         self._calibrator = Calibrator(self._s)
         self._detector.reset()
         self._controller.reset()
         self._filter.reset()
         self._last_t = None
+        self._frames_run = 0
+        self._last_measure = (float("nan"), float("nan"))
         self._t_first = None
         self._mismatch_warned = True  # fresh calibration: nothing stale to warn about
 
@@ -117,16 +147,23 @@ class Pipeline:
 
         message = self._check_startup(state, t)
         ctl = self._controller.update(level_f, ref.level, state, t)
-        result = self._enhancer.enhance(frame_bgr, pre, ctl.gain, stats.level)
+        if self._relighter is not None:
+            rr, _ = self._relighter.process(frame_bgr, t)
+            result = EnhanceResult(rr.frame, rr.applied, 1.0, 0.0)
+            gain = rr.gain
+        else:
+            result = self._enhancer.enhance(frame_bgr, pre, ctl.gain, stats.level)
+            gain = ctl.gain
 
-        out_level = float("nan")
-        err = float("nan")
-        if s.measure_output:
+        out_level, err = self._last_measure
+        if s.measure_output and self._frames_run % s.measure_every == 0:
             out_stats = estimate(
                 output_level_of(result.frame, s.analysis_width), s.grid_rows, s.grid_cols
             )
             out_level = out_stats.level
             err = abs(out_level - ref.level) / ref.level * 100.0
+            self._last_measure = (out_level, err)
+        self._frames_run += 1
 
         return FrameResult(
             frame=result.frame,
@@ -136,7 +173,7 @@ class Pipeline:
             level_filtered=level_f,
             ref_level=ref.level,
             ratio=ctl.ratio,
-            gain=ctl.gain,
+            gain=gain,
             gamma=result.gamma,
             clahe_clip=result.clahe_clip,
             dropped_fraction=dropped,
@@ -167,12 +204,14 @@ class Pipeline:
     def _calibrating(
         self, frame: np.ndarray, stats: IlluminationStats, t: float, t_start: float
     ) -> FrameResult:
-        self._calibrator.add(stats, t)
+        self._calibrator.add(stats, t, frame)
         message = ""
         calibrated_now = False
         if self._calibrator.ready:
             try:
                 self._reference = self._calibrator.finalize(self._exposure)
+                self._ref_image = self._calibrator.image()
+                self._build_relighter()
                 calibrated_now = True
                 self._filter.reset()
                 message = "calibration complete"

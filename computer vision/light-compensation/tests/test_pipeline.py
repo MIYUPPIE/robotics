@@ -217,3 +217,42 @@ def test_late_dimming_on_stored_reference_is_not_a_startup_warning():
         sim.t += 1 / FPS
         msgs.append(r.message)
     assert not any(msgs)
+
+
+def test_reference_mode_is_default_after_calibration_and_gamma_when_requested():
+    sim = calibrated()
+    assert sim.p.mode == "reference" and sim.p.reference_image is not None
+    gsim = calibrated(settings=replace(S, enhance_mode="gamma"))
+    assert gsim.p.mode == "gamma"
+    r = gsim.run(0.3, 3.0)
+    assert r.gain > 1.3 and r.gamma < 1.0  # legacy path reports gamma
+
+
+def test_stored_reference_without_image_falls_back_to_gamma_mode():
+    ref = calibrated().p.reference
+    sim = Sim(reference=ref)  # no image supplied
+    assert sim.p.mode == "gamma"
+    assert sim.run(0.3, 4.0).gain > 1.3
+
+
+def test_stored_reference_with_image_uses_relighting():
+    src = calibrated()
+    p = Pipeline(S, src.p.reference, src.p.reference_image)
+    assert p.mode == "reference"
+
+
+def test_recalibrate_drops_relighter():
+    sim = calibrated()
+    sim.p.recalibrate()
+    assert sim.p.mode == "gamma" and sim.p.reference_image is None
+    sim.run(0.5, 1.5)
+    assert sim.p.mode == "reference"
+
+
+def test_relit_output_matches_reference_scene_colours():
+    sim = calibrated()
+    r = sim.run(0.15, 4.0)
+    assert r.brightness_error_pct < 10.0
+    ref = sim.p.reference_image.astype(float).reshape(-1, 3).mean(axis=0)
+    out = r.frame.astype(float).reshape(-1, 3).mean(axis=0)
+    assert np.abs(ref - out).max() < 10  # per-channel means within 10 levels

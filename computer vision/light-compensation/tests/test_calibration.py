@@ -138,3 +138,58 @@ def test_garbage_timestamp_rejected(tmp_path):
     save_reference(replace(ref, created_at="yesterday"), p)
     with pytest.raises(ReferenceFileError, match="created_at"):
         load_reference(p, S)
+
+
+def test_calibrator_image_is_clean_mean_of_frames():
+    import cv2
+    from evals.synth import darken, make_scene
+    from src.calibration import Calibrator
+
+    scene = make_scene(h=48, w=64)
+    rng = np.random.default_rng(0)
+    c = Calibrator(S)
+    for i in range(30):
+        f = darken(scene, 1.0, rng)
+        c.add(stats(0.5), i / 30, f)
+    img = c.image()
+    assert img.shape == scene.shape and img.dtype == np.uint8
+    noisy = darken(scene, 1.0, np.random.default_rng(9))
+    err_avg = np.abs(img.astype(int) - scene.astype(int)).mean()
+    err_one = np.abs(noisy.astype(int) - scene.astype(int)).mean()
+    assert err_avg < 0.6 * err_one  # averaging removed most of the sensor noise
+    assert cv2 is not None
+
+
+def test_calibrator_without_frames_has_no_image():
+    assert run_calibration([0.5] * 5).image() is None
+
+
+def test_reference_image_roundtrip_and_size_check(tmp_path):
+    from dataclasses import replace
+
+    from src.calibration import (
+        load_reference_image,
+        reference_image_path,
+        save_reference_image,
+    )
+
+    img = np.random.default_rng(0).integers(0, 255, (48, 64, 3), dtype=np.uint8)
+    ref_json = tmp_path / "reference.json"
+    assert load_reference_image(ref_json, S) is None
+    save_reference_image(img, ref_json)
+    assert reference_image_path(ref_json).exists()
+    assert not list(tmp_path.glob("*.tmp*"))
+    assert np.array_equal(load_reference_image(ref_json, replace(S, width=64, height=48)), img)
+    with pytest.raises(ReferenceFileError, match="camera is"):
+        load_reference_image(ref_json, S)  # S is 640x480
+
+
+def test_corrupt_reference_image(tmp_path):
+    from src.calibration import reference_image_path
+
+    p = tmp_path / "reference.json"
+    reference_image_path(p).write_bytes(b"not a png")
+    from src.calibration import load_reference_image
+
+    with pytest.raises(ReferenceFileError, match="decode"):
+        load_reference_image(p, S)

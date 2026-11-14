@@ -22,7 +22,7 @@ import numpy as np
 
 from .config import Settings
 from .illumination import estimate
-from .preprocessing import Preprocessed, downscale_luma
+from .preprocessing import Preprocessed, downscale_luma, luma_small_of
 
 _IDENTITY_GAIN = 1.0 + 1e-3
 _TEMPORAL_FULL_GAIN = 4.0  # temporal weight reaches its maximum at this gain
@@ -133,5 +133,4 @@ class Enhancer:
 
 def output_level_of(frame_bgr: np.ndarray, analysis_width: int) -> np.ndarray:
     """Luma plane (float 0..1, downscaled) of an already-enhanced frame, for the error metric."""
-    lab = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2LAB)
-    return downscale_luma(lab[:, :, 0], analysis_width)
+    return luma_small_of(frame_bgr, analysis_width)

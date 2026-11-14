@@ -16,10 +16,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 
 from .config import Settings
 from .illumination import IlluminationStats
+from .linear_light import decode, encode
 
 REFERENCE_VERSION = 1
 
@@ -61,6 +63,8 @@ class Calibrator:
         self._cells: list[np.ndarray] = []
         self._t0: float | None = None
         self._t_last: float = 0.0
+        self._sum: np.ndarray | None = None
+        self._sum_n = 0
 
     @property
     def n_frames(self) -> int:
@@ -71,12 +75,27 @@ class Calibrator:
             return 0.0
         return min((self._t_last - self._t0) / self._s.calibration_seconds, 1.0)
 
-    def add(self, stats: IlluminationStats, t: float) -> None:
+    def add(self, stats: IlluminationStats, t: float, frame: np.ndarray | None = None) -> None:
         if self._t0 is None:
             self._t0 = t
         self._t_last = t
         self._levels.append(stats.level)
         self._cells.append(stats.cells)
+        if frame is not None:
+            lin = decode(frame)
+            if self._sum is None or self._sum.shape != lin.shape:
+                self._sum = lin.astype(np.float32)
+                self._sum_n = 1
+            else:
+                self._sum += lin
+                self._sum_n += 1
+
+    def image(self) -> np.ndarray | None:
+        """Mean of the calibration frames in linear light, re-encoded: a clean picture of the
+        normal room (averaging ~150 frames removes almost all sensor noise)."""
+        if self._sum is None:
+            return None
+        return encode(self._sum / self._sum_n)
 
     @property
     def ready(self) -> bool:
@@ -186,3 +205,34 @@ def drift_reference(
         return ref
     cells = tuple(float(c + (n - c) * a) for c, n in zip(ref.cells, stats.cells, strict=True))
     return replace(ref, level=float(ref.level + (stats.level - ref.level) * a), cells=cells)
+
+
+def reference_image_path(reference_json: Path | str) -> Path:
+    return Path(reference_json).with_suffix(".png")
+
+
+def save_reference_image(img: np.ndarray, reference_json: Path | str) -> Path:
+    path = reference_image_path(reference_json)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.stem + ".tmp.png")
+    if not cv2.imwrite(str(tmp), img):
+        raise OSError(f"could not write {tmp}")
+    os.replace(tmp, path)
+    return path
+
+
+def load_reference_image(reference_json: Path | str, settings: Settings) -> np.ndarray | None:
+    """The stored normal-room image, or None if absent. Raises ReferenceFileError if it exists
+    but does not match the configured frame size (wrong camera setup)."""
+    path = reference_image_path(reference_json)
+    if not path.exists():
+        return None
+    img = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if img is None:
+        raise ReferenceFileError(f"cannot decode reference image {path}")
+    if img.shape[:2] != (settings.height, settings.width):
+        raise ReferenceFileError(
+            f"reference image is {img.shape[1]}x{img.shape[0]}, camera is "
+            f"{settings.width}x{settings.height}"
+        )
+    return img
